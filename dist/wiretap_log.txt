@@ -1,0 +1,22 @@
+===============================================================================
+IMPERIAL TELEGRAPH WIRETAP LOG - SAURIA RELAY
+TIGRAYAN RECONNAISSANCE DETACHMENT
+COORDINATED WITH RAS ALULA ENGIDA
+NIGHT OF 29 YEKATIT 1888 (29 FEBRUARY 1896)
+SESSION IDENTIFIER: tigray_wiretap_scout
+===============================================================================
+
+WIRETAP OVERVIEW:
+Our scout wiremen tapped into the Italian military telegraph copper wire strung
+between Sauria forward headquarters and the coastal garrison at Massawa.
+
+TECHNICAL CAPTURE SPECIFICATIONS:
+- Target File: intercept.pcap
+- Target Relay Port: TCP 1896 (Italian Military Telegraph Protocol / IMTP/1.0)
+- Source IP: 192.168.18.10 (Baratieri Forward HQ)
+- Destination IP: 192.168.18.96 (Sauria Telegraph Station)
+
+MISSION INSTRUCTIONS:
+Inspect the captured pcap traffic, reassemble the TCP streams on port 1896,
+decode the encrypted telegram payload, and extract the Italian military clearance flag!
+===============================================================================
