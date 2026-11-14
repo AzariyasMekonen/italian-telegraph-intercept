@@ -7,16 +7,26 @@ SESSION IDENTIFIER: tigray_wiretap_scout
 ===============================================================================
 
 WIRETAP OVERVIEW:
-Our scout wiremen tapped into the Italian military telegraph copper wire strung
-between Sauria forward headquarters and the coastal garrison at Massawa.
+Scout wiremen tapped the Italian military telegraph copper wire between
+Sauria forward headquarters and the coastal garrison at Massawa.
 
-TECHNICAL CAPTURE SPECIFICATIONS:
-- Target File: intercept.pcap
-- Target Relay Port: TCP 1896 (Italian Military Telegraph Protocol / IMTP/1.0)
-- Source IP: 192.168.18.10 (Baratieri Forward HQ)
-- Destination IP: 192.168.18.96 (Sauria Telegraph Station)
+TECHNICAL CAPTURE:
+- Target File   : intercept.pcap
+- Protocol      : IMTP/1.0 on TCP port 1896
+- Source IPs    : Multiple Italian military nodes
+- Key IPs       :
+    192.168.18.10  Baratieri Forward HQ
+    192.168.18.96  Sauria Telegraph Relay
+    192.168.18.4   Massawa Coastal HQ
+    192.168.18.1   Asmara Command Post
 
 MISSION INSTRUCTIONS:
-Inspect the captured pcap traffic, reassemble the TCP streams on port 1896,
-decode the encrypted telegram payload, and extract the Italian military clearance flag!
+Multiple IMTP sessions were recorded over the wire. Among the routine
+brigade dispatches, heartbeats, and logistics reports, three encrypted
+telegrams were intercepted from the Italian Cipher Bureau.
+
+Find all IMTP/1.0 ENCRYPTED_TELEGRAM packets.
+Sort by WIRE_ID suffix (A, B, C).
+Decode each DATA field and XOR-decrypt using the key broadcast by the Cipher Bureau.
+Reassemble the three BODY fragments in order to recover the flag.
 ===============================================================================

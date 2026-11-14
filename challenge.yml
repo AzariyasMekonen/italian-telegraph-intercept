@@ -3,15 +3,17 @@ author: "AdwaCTF"
 category: networking
 description: |-
   February 29, 1896. As night fell across the mountains of Tigray, Italian Supreme
-  Commander Oreste Baratieri sent encrypted telegraph instructions to his four
-  brigade generals.
+  Commander Oreste Baratieri sent classified operational orders to his brigade generals
+  through the Sauria telegraph relay.
   
-  Tigrayan scouts tapped the military telegraph line running between Asmara,
-  Sauria, and the advance columns. We have extracted a raw network capture file
-  of the telegraph relay.
+  Tigrayan scout wiremen loyal to Ras Alula Engida tapped the military copper telegraph
+  line and captured all traffic for the night. The raw network capture contains hundreds
+  of routine brigade dispatches, logistics reports, and heartbeat signals — but buried
+  among the noise are three encrypted telegrams from Civil Commissioner Ferdinando
+  Martini, intercepted in transit.
   
-  Reassemble the intercepted telegraph sessions, decode the emergency communication,
-  and recover the flag!
+  The Cipher Bureau was using a layered encoding scheme. Identify the encrypted sessions,
+  recover the cipher key, decode the fragments in order, and reassemble the flag.
   
   Flag format: `AdwaCTF{...}`
 value: 500
@@ -23,6 +25,8 @@ tags:
   - networking
   - pcap
   - wire-analysis
+  - xor
+  - reassembly
   - dynamic-flag
 files:
   - output/intercept.pcap
@@ -34,7 +38,9 @@ generator:
   timeout: 30
   cache_ttl: 72
 hints:
-  - content: "Open the capture in Wireshark or use a python script to inspect the TCP streams on port 1896. Look for encoded payloads labeled 'IMTP/1.0 ENCRYPTED_TELEGRAM'."
+  - content: "Filter for IMTP/1.0 ENCRYPTED_TELEGRAM packets — there are real ones and decoys. The real ones share a common WIRE_ID prefix. Sort by WIRE_ID suffix (A → B → C)."
     cost: 50
+  - content: "Each DATA field is base64-encoded ciphertext. The cipher key was broadcast in a SYSTEM_KEY_ROTATION packet somewhere in the capture. XOR-decrypt each fragment, then extract the BODY field."
+    cost: 100
 state: visible
-version: "0.1"
+version: "0.2"
