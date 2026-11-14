@@ -2,19 +2,12 @@ name: "Italian Telegraph Intercept"
 author: "AdwaCTF"
 category: networking
 description: |-
-  February 29, 1896. As night fell across the mountains of Tigray, Italian Supreme
-  Commander Oreste Baratieri sent classified operational orders to his brigade generals
-  through the Sauria telegraph relay.
+  On the eve of battle, the copper wire between Sauria and the coast hummed
+  with frantic Italian telegraphs. Tigrayan wiremen tapped the line and
+  recorded the traffic alongside the relay switchboard log.
   
-  Tigrayan scout wiremen loyal to Ras Alula Engida tapped the military copper telegraph
-  line and captured all traffic for the night, logging the switchboard calibration records.
-  The raw network capture contains hundreds of routine brigade dispatches, logistics
-  reports, and heartbeat signals — but buried among the noise are three encrypted
-  telegrams from Civil Commissioner Ferdinando Martini, intercepted in transit.
-  
-  The Cipher Bureau used a dual-key procedure: one key fragment was broadcast over the
-  wire, while the other was recorded by physical linemen in the wiretap log.
-  Analyze both files, recover the combined cipher key, and reassemble the flag.
+  Amidst the garrison chatter, General Baratieri's midnight orders slid
+  across the wire in code. Piece together what was spoken in the dark.
   
   Flag format: `AdwaCTF{...}`
 value: 500
