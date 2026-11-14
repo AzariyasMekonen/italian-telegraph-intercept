@@ -20,13 +20,21 @@ TECHNICAL CAPTURE:
     192.168.18.4   Massawa Coastal HQ
     192.168.18.1   Asmara Command Post
 
-MISSION INSTRUCTIONS:
-Multiple IMTP sessions were recorded over the wire. Among the routine
-brigade dispatches, heartbeats, and logistics reports, three encrypted
-telegrams were intercepted from the Italian Cipher Bureau.
+CRYPTOGRAPHIC RECONNAISSANCE (SPLIT-KEY ARCHITECTURE):
+The Italian Cipher Bureau implemented a dual-key procedure for field transmissions:
+  1. Network Key fragment  : Transmitted via an IMTP system key rotation packet
+                             over the wire (recorded in intercept.pcap).
+  2. Physical Wiretap Key  : Recovered directly from the Sauria switchboard logbook:
+                             PHYSICAL_KEY = "SAURIA_1896"
 
-Find all IMTP/1.0 ENCRYPTED_TELEGRAM packets.
-Sort by WIRE_ID suffix (A, B, C).
-Decode each DATA field and XOR-decrypt using the key broadcast by the Cipher Bureau.
-Reassemble the three BODY fragments in order to recover the flag.
+To decrypt the intercepted telegram payloads:
+  COMBINED_KEY = NETWORK_KEY + "_" + PHYSICAL_KEY
+  plaintext    = XOR(base64_decode(DATA), COMBINED_KEY)
+
+MISSION INSTRUCTIONS:
+  1. Inspect the capture to find the broadcast NETWORK_KEY.
+  2. Combine NETWORK_KEY with PHYSICAL_KEY from this log.
+  3. Filter for authentic IMTP/1.0 ENCRYPTED_TELEGRAM packets.
+  4. Sort by WIRE_ID suffix (A, B, C), decrypt each DATA field, and
+     concatenate the three BODY fragments to recover the flag.
 ===============================================================================

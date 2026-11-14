@@ -7,13 +7,14 @@ description: |-
   through the Sauria telegraph relay.
   
   Tigrayan scout wiremen loyal to Ras Alula Engida tapped the military copper telegraph
-  line and captured all traffic for the night. The raw network capture contains hundreds
-  of routine brigade dispatches, logistics reports, and heartbeat signals — but buried
-  among the noise are three encrypted telegrams from Civil Commissioner Ferdinando
-  Martini, intercepted in transit.
+  line and captured all traffic for the night, logging the switchboard calibration records.
+  The raw network capture contains hundreds of routine brigade dispatches, logistics
+  reports, and heartbeat signals — but buried among the noise are three encrypted
+  telegrams from Civil Commissioner Ferdinando Martini, intercepted in transit.
   
-  The Cipher Bureau was using a layered encoding scheme. Identify the encrypted sessions,
-  recover the cipher key, decode the fragments in order, and reassemble the flag.
+  The Cipher Bureau used a dual-key procedure: one key fragment was broadcast over the
+  wire, while the other was recorded by physical linemen in the wiretap log.
+  Analyze both files, recover the combined cipher key, and reassemble the flag.
   
   Flag format: `AdwaCTF{...}`
 value: 500
@@ -40,7 +41,7 @@ generator:
 hints:
   - content: "Filter for IMTP/1.0 ENCRYPTED_TELEGRAM packets — there are real ones and decoys. The real ones share a common WIRE_ID prefix. Sort by WIRE_ID suffix (A → B → C)."
     cost: 50
-  - content: "Each DATA field is base64-encoded ciphertext. The cipher key was broadcast in a SYSTEM_KEY_ROTATION packet somewhere in the capture. XOR-decrypt each fragment, then extract the BODY field."
+  - content: "Each DATA field is base64-encoded ciphertext. Recover the broadcast NETWORK_KEY from the SYSTEM_KEY_ROTATION packet in the PCAP, combine it with the PHYSICAL_KEY from wiretap_log.txt, and XOR-decrypt each fragment."
     cost: 100
 state: visible
-version: "0.2"
+version: "0.3"

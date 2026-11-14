@@ -7,16 +7,34 @@ SESSION IDENTIFIER: tigray_wiretap_scout
 ===============================================================================
 
 WIRETAP OVERVIEW:
-Our scout wiremen tapped into the Italian military telegraph copper wire strung
-between Sauria forward headquarters and the coastal garrison at Massawa.
+Scout wiremen tapped the Italian military telegraph copper wire between
+Sauria forward headquarters and the coastal garrison at Massawa.
 
-TECHNICAL CAPTURE SPECIFICATIONS:
-- Target File: intercept.pcap
-- Target Relay Port: TCP 1896 (Italian Military Telegraph Protocol / IMTP/1.0)
-- Source IP: 192.168.18.10 (Baratieri Forward HQ)
-- Destination IP: 192.168.18.96 (Sauria Telegraph Station)
+TECHNICAL CAPTURE:
+- Target File   : intercept.pcap
+- Protocol      : IMTP/1.0 on TCP port 1896
+- Source IPs    : Multiple Italian military nodes
+- Key IPs       :
+    192.168.18.10  Baratieri Forward HQ
+    192.168.18.96  Sauria Telegraph Relay
+    192.168.18.4   Massawa Coastal HQ
+    192.168.18.1   Asmara Command Post
+
+CRYPTOGRAPHIC RECONNAISSANCE (SPLIT-KEY ARCHITECTURE):
+The Italian Cipher Bureau implemented a dual-key procedure for field transmissions:
+  1. Network Key fragment  : Transmitted via an IMTP system key rotation packet
+                             over the wire (recorded in intercept.pcap).
+  2. Physical Wiretap Key  : Recovered directly from the Sauria switchboard logbook:
+                             PHYSICAL_KEY = "SAURIA_1896"
+
+To decrypt the intercepted telegram payloads:
+  COMBINED_KEY = NETWORK_KEY + "_" + PHYSICAL_KEY
+  plaintext    = XOR(base64_decode(DATA), COMBINED_KEY)
 
 MISSION INSTRUCTIONS:
-Inspect the captured pcap traffic, reassemble the TCP streams on port 1896,
-decode the encrypted telegram payload, and extract the Italian military clearance flag!
+  1. Inspect the capture to find the broadcast NETWORK_KEY.
+  2. Combine NETWORK_KEY with PHYSICAL_KEY from this log.
+  3. Filter for authentic IMTP/1.0 ENCRYPTED_TELEGRAM packets.
+  4. Sort by WIRE_ID suffix (A, B, C), decrypt each DATA field, and
+     concatenate the three BODY fragments to recover the flag.
 ===============================================================================

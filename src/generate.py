@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 On-Demand Dynamic Challenge File Generator — Italian Telegraph Intercept (AdwaCTF).
-HARDENED: 200+ noise packets, flag split across 3 encrypted IMTP sessions,
-XOR(key=ADWA) + base64 encoding, cipher key discoverable in routine traffic.
+HARDENED: 270+ packets, flag split across 3 encrypted IMTP sessions, decoys,
+split-key architecture requiring BOTH intercept.pcap (NETWORK_KEY) and
+wiretap_log.txt (PHYSICAL_KEY) to decrypt.
 
 Environment variables:
   - FLAG       : participant-specific flag
@@ -35,15 +36,18 @@ def get_flag() -> str:
                 pass
     return "AdwaCTF{73l36r4ph_w1r35_t4pp3d_47_54ur14}"
 
-# ─── XOR cipher ───────────────────────────────────────────────────────────────
+# ─── Dual-key XOR cipher ──────────────────────────────────────────────────────
+# Both intercept.pcap (NETWORK_KEY) and wiretap_log.txt (PHYSICAL_KEY) are required.
 
-XOR_KEY = b"ADWA"
+NETWORK_KEY  = b"ADWA"
+PHYSICAL_KEY = b"SAURIA_1896"
+CIPHER_KEY   = NETWORK_KEY + b"_" + PHYSICAL_KEY  # b"ADWA_SAURIA_1896"
 
 def xor_cipher(data: bytes) -> bytes:
-    return bytes(b ^ XOR_KEY[i % len(XOR_KEY)] for i, b in enumerate(data))
+    return bytes(b ^ CIPHER_KEY[i % len(CIPHER_KEY)] for i, b in enumerate(data))
 
 def encode_fragment(text: str) -> str:
-    """XOR-encrypt then base64-encode a flag fragment."""
+    """XOR-encrypt with combined dual-key then base64-encode."""
     return base64.b64encode(xor_cipher(text.encode())).decode()
 
 # ─── PCAP packet builder ───────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ def build_pcap(flag: str, user_id: str) -> bytes:
     T0 = 825652800
 
     packets: list[bytes] = []
-    rng = random.Random(42)   # deterministic so the pcap is reproducible per flag
+    rng = random.Random(42)
 
     def pkt(t_off: float, src: str, dst: str,
             sport: int, dport: int,
@@ -83,7 +87,6 @@ def build_pcap(flag: str, user_id: str) -> bytes:
         hdr = struct.pack("<IIII", int(T0 + t_off), 0, n, n)
         packets.append(hdr + raw)
 
-    # ── helpers for compact call sites ────────────────────────────────────────
     HQ    = "192.168.18.10"   # Baratieri Forward HQ
     SAU   = "192.168.18.96"   # Sauria Telegraph Relay
     MAS   = "192.168.18.4"    # Massawa Coastal HQ
@@ -132,17 +135,16 @@ def build_pcap(flag: str, user_id: str) -> bytes:
     pkt(6.1,  SAU, ELL, 1896, 3003, 85,  130,  PSH_ACK,
         b"IMTP/1.0 STATUS_ACK UNIT=ELLENA_RESERVE\n")
 
-    # HTTP noise between ASM-MAS
+    # HTTP telemetry noise
     for i in range(10):
         pkt(7.0 + i*0.4, ASM, MAS, 2300+i, 80, 10+i*5, 0, PSH_ACK,
             f"GET /telemetry/{i} HTTP/1.1\r\nHost: massawa.mil.it\r\n\r\n".encode())
         pkt(7.2 + i*0.4, MAS, ASM, 80, 2300+i, 1+i*3, 50+i*5, PSH_ACK,
             b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK")
 
-    # ── KEY DISCLOSURE: cipher key buried in routine traffic ──────────────────
-    # Discoverable at t≈11 — a system broadcast about key rotation
+    # ── KEY DISCLOSURE: NETWORK_KEY broadcast in routine traffic ─────────────
     pkt(11.0, ASM, SAU, 4000, 1896, 400, 0, PSH_ACK,
-        b"IMTP/1.0 SYSTEM_KEY_ROTATION UNIT=CIPHER_BUREAU KEY_ID=ADWA EPOCH=18960229\n")
+        b"IMTP/1.0 SYSTEM_KEY_ROTATION UNIT=CIPHER_BUREAU NETWORK_KEY=ADWA EPOCH=18960229\n")
     pkt(11.2, SAU, ASM, 1896, 4000, 420, 490, PSH_ACK,
         b"IMTP/1.0 SYSTEM_ACK KEY_ROTATION_CONFIRMED\n")
 
@@ -172,14 +174,13 @@ def build_pcap(flag: str, user_id: str) -> bytes:
         pkt(19.2 + i*0.4, HQ, ALB, 1896, 4100+i, 1+i, 503+i*3, PSH_ACK,
             f"IMTP/1.0 PONG SEQ={i}\n".encode())
 
-    # Decoy — looks like ENCRYPTED_TELEGRAM but with garbled format (wrong field)
+    # Decoy A
     pkt(28.0, MAS, SAU, 1896, 5001, 300, 0, PSH_ACK,
         b"IMTP/1.0 ENCRYPTED_TELEGRAM WIRE_ID=DECOY_A PAYLOAD=INVALIDBASE64!!!\n")
     pkt(28.5, SAU, MAS, 5001, 1896, 400, 350, PSH_ACK,
         b"IMTP/1.0 NAK WIRE_ID=DECOY_A REASON=DECODE_FAIL\n")
 
     # ── ENCRYPTED FRAGMENT 1 (t = 30) ─────────────────────────────────────────
-    # Flag split into 3 equal-ish parts
     third = len(flag) // 3
     part1 = flag[:third]
     part2 = flag[third:2*third]
@@ -208,7 +209,7 @@ def build_pcap(flag: str, user_id: str) -> bytes:
         pkt(31.2 + i*0.5, SAU, DAB, 1896, 5000+i, 1+i, 704+i*4, PSH_ACK,
             b"IMTP/1.0 POSITION_ACK\n")
 
-    # Second decoy — correct format but wrong DATA (scrambled base64, can't decode)
+    # Decoy B
     pkt(42.0, ALB, HQ, 1896, 5000, 3000, 0, PSH_ACK,
         b"IMTP/1.0 ENCRYPTED_TELEGRAM WIRE_ID=DECOY_B DATA=aGVsbG8gd29ybGQ=\n")
     pkt(42.3, HQ, ALB, 5000, 1896, 400, 3050, PSH_ACK,
@@ -240,13 +241,12 @@ def build_pcap(flag: str, user_id: str) -> bytes:
         pkt(51.3 + i*0.6, MAS, ELL, 1896, 6000+i, 1+i, 903+i*3, PSH_ACK,
             b"IMTP/1.0 LOGISTICS_ACK\n")
 
-    # ARP-like traffic (broadcast style)
     for i in range(15):
         pkt(60.0 + i*0.3, f"192.168.18.{10+i}", "192.168.18.255",
             rng.randint(1024,65000), 1896, rng.randint(100,999), 0, PSH_ACK,
             f"IMTP/1.0 BROADCAST UNIT=UNKNOWN_{i} STATUS=ALIVE\n".encode())
 
-    # Third decoy — correct wrapper but DATA decodes to something that is not a flag
+    # Decoy C
     pkt(67.0, ASM, HQ, 1896, 5000, 5000, 0, PSH_ACK,
         ("IMTP/1.0 ENCRYPTED_TELEGRAM WIRE_ID=DECOY_C DATA=" +
          base64.b64encode(b"THIS_IS_NOT_THE_FLAG_YOU_ARE_LOOKING_FOR").decode() +
@@ -269,7 +269,7 @@ def build_pcap(flag: str, user_id: str) -> bytes:
     pkt(70.3, SAU, ASM, 5000, 1896, 6500, 6000+len(wire3), PSH_ACK,
         f"IMTP/1.0 ACK WIRE_ID=WIRE_{wire_base}_C STATUS=RECEIVED\n".encode())
 
-    # ── Noise burst 4 — final wind-down (t = 71 .. 90) ────────────────────────
+    # ── Noise burst 4 (t = 71 .. 90) ──────────────────────────────────────────
     for i in range(30):
         pkt(71.0 + i*0.5, SAU, HQ, 5100+i, 1896, 1000+i*5, 0, PSH_ACK,
             f"IMTP/1.0 RELAY_HEARTBEAT SEQ={i} SAURIA_ACTIVE\n".encode())
@@ -280,7 +280,7 @@ def build_pcap(flag: str, user_id: str) -> bytes:
         b"IMTP/1.0 SESSION_CLOSE SAURIA_HQ REASON=DAWN_ADVANCE\n")
     pkt(87.3, SAU, HQ, 5000, 1896, 9100, 9050, PSH_ACK,
         b"IMTP/1.0 SESSION_CLOSE_ACK\n")
-    pkt(87.5, HQ, SAU, 1896, 5000, 9050, 9150, 0x11, b"")   # FIN-ACK
+    pkt(87.5, HQ, SAU, 1896, 5000, 9050, 9150, 0x11, b"")
 
     return global_hdr + b"".join(packets)
 
@@ -337,14 +337,21 @@ def main():
         "    192.168.18.96  Sauria Telegraph Relay\n"
         "    192.168.18.4   Massawa Coastal HQ\n"
         "    192.168.18.1   Asmara Command Post\n\n"
+        "CRYPTOGRAPHIC RECONNAISSANCE (SPLIT-KEY ARCHITECTURE):\n"
+        "The Italian Cipher Bureau implemented a dual-key procedure for field transmissions:\n"
+        "  1. Network Key fragment  : Transmitted via an IMTP system key rotation packet\n"
+        "                             over the wire (recorded in intercept.pcap).\n"
+        "  2. Physical Wiretap Key  : Recovered directly from the Sauria switchboard logbook:\n"
+        "                             PHYSICAL_KEY = \"SAURIA_1896\"\n\n"
+        "To decrypt the intercepted telegram payloads:\n"
+        "  COMBINED_KEY = NETWORK_KEY + \"_\" + PHYSICAL_KEY\n"
+        "  plaintext    = XOR(base64_decode(DATA), COMBINED_KEY)\n\n"
         "MISSION INSTRUCTIONS:\n"
-        "Multiple IMTP sessions were recorded over the wire. Among the routine\n"
-        "brigade dispatches, heartbeats, and logistics reports, three encrypted\n"
-        "telegrams were intercepted from the Italian Cipher Bureau.\n\n"
-        "Find all IMTP/1.0 ENCRYPTED_TELEGRAM packets.\n"
-        "Sort by WIRE_ID suffix (A, B, C).\n"
-        "Decode each DATA field and XOR-decrypt using the key broadcast by the Cipher Bureau.\n"
-        "Reassemble the three BODY fragments in order to recover the flag.\n"
+        "  1. Inspect the capture to find the broadcast NETWORK_KEY.\n"
+        "  2. Combine NETWORK_KEY with PHYSICAL_KEY from this log.\n"
+        "  3. Filter for authentic IMTP/1.0 ENCRYPTED_TELEGRAM packets.\n"
+        "  4. Sort by WIRE_ID suffix (A, B, C), decrypt each DATA field, and\n"
+        "     concatenate the three BODY fragments to recover the flag.\n"
         "===============================================================================\n"
     )
 
@@ -377,10 +384,9 @@ def main():
         except OSError:
             pass
 
-    total_pkts = pcap_data.count(b"IMTP/1.0")
     print(f"[generator] user_id={user_id}")
     print(f"[generator] target_dir={target_dir}")
-    print(f"[generator] pcap_size={len(pcap_data)} bytes  flag_fragments=3  xor_key=ADWA")
+    print(f"[generator] pcap_size={len(pcap_data)} bytes  flag_fragments=3  split_key=ADWA_SAURIA_1896")
     print(f"[generator] generated: {target_name}, wiretap_log.txt")
 
 
